@@ -1,3 +1,4 @@
+#Computes the longest common subsequence of the algorithm
 def longest_common_subsequence(t1, t2):
 	# Calculate the length of the strings
 	m = len(t1)

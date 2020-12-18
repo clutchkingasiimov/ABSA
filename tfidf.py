@@ -1,16 +1,12 @@
-from nltk.tokenize import word_tokenize, sent_tokenize
-from nltk.corpus import wordnet as wn
 import string
 from sklearn.feature_extraction.text import TfidfVectorizer
 import numpy as np
 import re
 from LCSAlgo import LCSSetAlgorithm
-from lsi import LSI
-from nltk.stem import WordNetLemmatizer
+from jaccardsim import JaccardCheck
 import nltk 
 nltk.download('punkt')
 nltk.download('stopwords')
-
 
 class Plagiarism():
 
@@ -96,6 +92,7 @@ class Plagiarism():
 
 	"""
 
+	#Load all the stopwords in the english language
 	stopwords = nltk.corpus.stopwords.words('english')
 
 	def __init__(self, text1, text2):
@@ -141,38 +138,43 @@ class Plagiarism():
 
 		return ((pairwise_similarity).A)[0,1]
 
-	def lsi_analysis(self):
-		lsi = LSI(document_matrix=self.X)
-		lsi_matrix = lsi.calculate_lsi(return_topic_importance=True)
-		return lsi_matrix
+	#Private function for calculating the Jaccard score
+	def jaccard_similarity(self):
+		jaccard = JaccardCheck(self.text1, self.text2)
+		two_word_jaccard, three_word_jaccard, k_word_jaccard = jaccard.jaccard_score_estimation()
+		return two_word_jaccard, three_word_jaccard, k_word_jaccard
 
 
 	def compute_pairwise_similarity(self):
 		#First, process the strings for mishaps and stopwords
 		processed = self.__remove_characters(self.text1)
 		processed_2 = self.__remove_characters(self.text2)
+		processed_stop_removed = self.__stopwords_remover(processed)
+		processed_stop_removed_2 = self.__stopwords_remover(processed_2)
+
 		#Calculate the pairwise metric score using TF-IDF
 		pairwise_metric = self.tf_idf_transformation(processed, processed_2)
 
 		#Implement the LCSSetAlgorithm on the processed strings
-		lcs_algo = LCSSetAlgorithm(processed, processed_2)
+		lcs_algo = LCSSetAlgorithm(processed_stop_removed, processed_stop_removed_2)
 		lcs_pairwise_similarity = lcs_algo.normalized_lcs()
 
+		two_word_jaccard, three_word_jaccard, k_word_jaccard = self.jaccard_similarity()
+		avg_jaccard_score = (two_word_jaccard + three_word_jaccard + k_word_jaccard) / 3
 		#Compute the pairwise similarity score as the weighted average of the TF-IDF score and LCSSet score.
-		pairwise_score = 100 * ((pairwise_metric) + (lcs_pairwise_similarity)) / 2
+		pairwise_score = 100 * ((pairwise_metric) + (lcs_pairwise_similarity) + avg_jaccard_score) / 3
 
 
 		print("Sentence 1: {}".format(self.text1))
 		print("Sentence 2: {}".format(self.text2))
 		print("Text Similarity Detected: {}%".format(np.round(pairwise_score)))
-
+		print("Lexical Similiarity Detected (2-Shingle Jaccard Score): {}%".format(np.round(two_word_jaccard * 100)))
+		print("Lexical Similiarity Detected (3-Shingle Jaccard Score): {}%".format(np.round(three_word_jaccard * 100)))
+		# print("Lexical Similiarity Detected (K-Shingle Jaccard Score): {}%".format(np.round(k_word_jaccard * 100)))
 
 
 ######################################################3
-sentence = "We all are our best friends and our worst enemies"
-sentence_2 = "Maybe life is a mix of enemity and friendship"
+sentence = "Hello world my name is Apple"
+sentence_2 = "Hello world my name is Apple"
 detection = Plagiarism(sentence, sentence_2)
 sim_check = detection.compute_pairwise_similarity()
-lsi_matrix = detection.lsi_analysis()
-print(lsi_matrix)
-# print(sim_check)
